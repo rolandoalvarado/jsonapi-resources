@@ -475,10 +475,13 @@ module JSONAPI
 
       def resource_klass_for(type)
         type = type.underscore
-        type_with_module = type.start_with?(module_path) ? type : module_path + type
+        cleaned_array = clean_array(types: type.split('/'))
+        type = cleaned_array.uniq.join('/').pluralize
 
+        type_with_module = type.start_with?(module_path) ? type : module_path + type
         resource_name = _resource_name_from_type(type_with_module)
         resource = resource_name.safe_constantize if resource_name
+
         if resource.nil?
           fail NameError, "JSONAPI: Could not find resource '#{type}'. (Class #{resource_name} not found)"
         end
@@ -1155,6 +1158,20 @@ module JSONAPI
       def check_duplicate_attribute_name(name)
         if _attributes.include?(name.to_sym)
           warn "[DUPLICATE ATTRIBUTE] `#{name}` has already been defined in #{_resource_name_from_type(_type)}."
+        end
+      end
+
+      def clean_array(types:)
+        has_empty = types.any? { |t| t.respond_to?(:empty?) && t.empty? }
+
+        types.reduce([]) do |result, type|
+          return result if type.empty?
+
+          result << if has_empty
+            type
+          else
+            type.singularize
+          end
         end
       end
     end
